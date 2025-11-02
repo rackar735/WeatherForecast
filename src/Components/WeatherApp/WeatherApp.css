@@ -123,6 +123,36 @@
   font-size: 16px;
   font-weight: 600;
 }
+/* recent searches */
+.wx-history { margin-top: 16px; }
+.wx-history-title { margin: 0 0 8px; font-weight: 600; }
+.wx-history-list {
+  list-style: none;
+  margin: 0; padding: 0;
+  display: grid; gap: 6px;
+}
+.wx-history-list li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  font-size: 14px;
+  opacity: .95;
+}
+.wx-history-list .city { font-weight: 500; }
+.wx-history-list .temp { opacity: .9; }
+.wx-history-list .source { justify-self: end; font-size: 12px; opacity: .7; }
+
+/* credits (you already added, keeping here for completeness) */
+.wx-credits {
+  margin-top: 30px;
+  text-align: center;
+  font-size: 15px;
+  color: #ffffff;
+  opacity: 0.8;
+}
+.wx-credits b { color: #ffffff; }
+
 
 
 

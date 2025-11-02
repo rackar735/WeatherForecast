@@ -1,5 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./WeatherApp.css";
+
+import { addSearchRecord, getRecentSearches } from "../../lib/firebase";
 
 import searchIcon from "../Assets/search.png";
 import clearIcon from "../Assets/clear.png";
@@ -115,6 +117,19 @@ export default function WeatherApp() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [data, setData] = useState(null); // unified data
+  const [history, setHistory] = useState([]);
+
+  // Load recent history on first render
+  useEffect(() => {
+    (async () => {
+      try {
+        const items = await getRecentSearches(5);
+        setHistory(items);
+      } catch (e) {
+        console.warn("load history failed:", e?.message || e);
+      }
+    })();
+  }, []);
 
   const handleSearch = async () => {
     const q = query.trim();
@@ -143,6 +158,16 @@ export default function WeatherApp() {
           desc: w.weather?.[0]?.description || "",
           icon: iconForOWM(w.weather?.[0]?.icon)
         });
+
+        // save to Firestore + refresh history
+        await addSearchRecord({
+          city: place.name,
+          country: place.country,
+          temp: Number(w.main.temp),
+          source: "owm",
+        });
+        setHistory(await getRecentSearches(5));
+
       } else {
         // Fallback: Open-Meteo (no key)
         const place = await geocodeOM(q);
@@ -163,6 +188,15 @@ export default function WeatherApp() {
           desc: info.d,
           icon: info.i
         });
+
+        // save to Firestore + refresh history
+        await addSearchRecord({
+          city: place.name,
+          country: place.country,
+          temp: Number(cw.temperature),
+          source: "open-meteo",
+        });
+        setHistory(await getRecentSearches(5));
       }
     } catch (e) {
       setErr(e.message || "Something went wrong");
@@ -268,15 +302,33 @@ export default function WeatherApp() {
         {!data && !loading && !err && (
           <div className="wx-empty muted card">Start by searching for a city above.</div>
         )}
-       <div className="wx-credits">
-         <div><b>Created by:</b> Kartik Tyagi</div>
-         <div><b>Guided by:</b> Dr. R.K Nadesh</div>
-       </div>
+
+        {/* Recent searches */}
+        {history.length > 0 && (
+          <section className="wx-history card">
+            <h3 className="wx-history-title">Recent searches</h3>
+            <ul className="wx-history-list">
+              {history.map((h) => (
+                <li key={h.id}>
+                  <span className="city">
+                    {h.city}{h.country ? `, ${h.country}` : ""}
+                  </span>
+                  {typeof h.temp === "number" && (
+                    <span className="temp">{h.temp.toFixed(1)}°C</span>
+                  )}
+                  <span className="source">{h.source}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {/* Footer credits */}
+        <div className="wx-credits">
+          <div><b>Created by:</b> Kartik Tyagi</div>
+          <div><b>Guided by:</b> Dr. R.K Nadesh</div>
+        </div>
       </div>
     </div>
   );
 }
-
-
-
-
