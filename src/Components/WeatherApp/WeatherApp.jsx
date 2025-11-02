@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import "./WeatherApp.css";
 
-import { addSearchRecord, getRecentSearches } from "../../lib/firebase";
+import { addSearchRecord } from "../../lib/firebase";
 
 import searchIcon from "../Assets/search.png";
 import clearIcon from "../Assets/clear.png";
@@ -117,19 +117,6 @@ export default function WeatherApp() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [data, setData] = useState(null); // unified data
-  const [history, setHistory] = useState([]);
-
-  // Load recent history on first render
-  useEffect(() => {
-    (async () => {
-      try {
-        const items = await getRecentSearches(5);
-        setHistory(items);
-      } catch (e) {
-        console.warn("load history failed:", e?.message || e);
-      }
-    })();
-  }, []);
 
   const handleSearch = async () => {
     const q = query.trim();
@@ -144,8 +131,8 @@ export default function WeatherApp() {
         // Try OpenWeather path first
         const place = await geocodeOWM(q, apiKey);
         const w = await currentOWM(place.lat, place.lon, apiKey);
-        // normalize to a common shape our UI expects
-        setData({
+
+        const norm = {
           source: "owm",
           name: `${place.name}${place.state ? ", " + place.state : ""}, ${place.country}`,
           temp: Number(w.main.temp),
@@ -157,16 +144,16 @@ export default function WeatherApp() {
           pressure: Number(w.main.pressure),
           desc: w.weather?.[0]?.description || "",
           icon: iconForOWM(w.weather?.[0]?.icon)
-        });
+        };
+        setData(norm);
 
-        // save to Firestore + refresh history
+        // store to Firestore (no UI list)
         await addSearchRecord({
           city: place.name,
           country: place.country,
-          temp: Number(w.main.temp),
+          temp: norm.temp,
           source: "owm",
         });
-        setHistory(await getRecentSearches(5));
 
       } else {
         // Fallback: Open-Meteo (no key)
@@ -175,7 +162,7 @@ export default function WeatherApp() {
         const cw = w.current_weather;
         const info = OM_MAP[cw.weathercode] || { d: "current weather", i: clearIcon };
 
-        setData({
+        const norm = {
           source: "open-meteo",
           name: `${place.name}${place.state ? ", " + place.state : ""}, ${place.country}`,
           temp: Number(cw.temperature),
@@ -183,20 +170,20 @@ export default function WeatherApp() {
           tMin: null,
           tMax: null,
           windKmh: Math.round(Number(cw.windspeed)), // already km/h
-          humidity: null,   // OM current endpoint doesn’t include these without extra hourly calls
+          humidity: null,
           pressure: null,
           desc: info.d,
           icon: info.i
-        });
+        };
+        setData(norm);
 
-        // save to Firestore + refresh history
+        // store to Firestore (no UI list)
         await addSearchRecord({
           city: place.name,
           country: place.country,
-          temp: Number(cw.temperature),
+          temp: norm.temp,
           source: "open-meteo",
         });
-        setHistory(await getRecentSearches(5));
       }
     } catch (e) {
       setErr(e.message || "Something went wrong");
@@ -301,26 +288,6 @@ export default function WeatherApp() {
 
         {!data && !loading && !err && (
           <div className="wx-empty muted card">Start by searching for a city above.</div>
-        )}
-
-        {/* Recent searches */}
-        {history.length > 0 && (
-          <section className="wx-history card">
-            <h3 className="wx-history-title">Recent searches</h3>
-            <ul className="wx-history-list">
-              {history.map((h) => (
-                <li key={h.id}>
-                  <span className="city">
-                    {h.city}{h.country ? `, ${h.country}` : ""}
-                  </span>
-                  {typeof h.temp === "number" && (
-                    <span className="temp">{h.temp.toFixed(1)}°C</span>
-                  )}
-                  <span className="source">{h.source}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
         )}
 
         {/* Footer credits */}
